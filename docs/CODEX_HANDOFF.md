@@ -15,10 +15,12 @@ Cardinal is ALREADY INSTALLED AND WORKING in that Binder image.
 Use it. Do not rebuild Cardinal from source.
 Image definition lives in:  <Dockerfile | environment.yml | postBuild | apt.txt>
 
-NUCLEAR DATA:     ENDF/B-VII.1 is what the Binder image has.
-                  THE APPROVED SPEC REQUIRES ENDF/B-VIII.0. See the warning
-                  immediately below - this is a decision, not a detail.
-                  OPENMC_CROSS_SECTIONS=<path>/cross_sections.xml
+ENVIRONMENT:      Cardinal, OpenMC, NekRS, MOOSE and nuclear data are ALL
+                  ALREADY INSTALLED in the image. Nothing needs building.
+
+NUCLEAR DATA:     export OPENMC_CROSS_SECTIONS=$HOME/cross_sections/endfb-vii.1-hdf5/cross_sections.xml
+                  This is ENDF/B-VII.1. The committed results used VIII.0.
+                  Read the box below before reporting any number.
 
 MEASURED LIMITS:  32 GiB RAM, <nproc> cores, MPI = <OpenMPI | MPICH>
                   -> Tier 3 (Full). NekRS polynomialOrder 7 fits (10.07 GB).
@@ -26,48 +28,38 @@ MEASURED LIMITS:  32 GiB RAM, <nproc> cores, MPI = <OpenMPI | MPICH>
 YOUR TASK:        <state exactly what Codex should accomplish>
 ```
 
-## 🛑 STOP — nuclear data library conflict
+## ⚠️ Nuclear data: you are running VII.1, the baselines are VIII.0
 
-`spec/materials.md` and every result in this repo use **ENDF/B-VIII.0**. The
-target environment has **ENDF/B-VII.1**. These are different libraries.
+The image has **ENDF/B-VII.1**. `spec/materials.md`, every number in
+`results/`, and pcL all used **ENDF/B-VIII.0**. Proceed on VII.1, but treat the
+difference as a measured quantity rather than an ignored one.
 
-This matters because pcL — the team pcM is being compared against — used
-ENDF/B-VIII.0. Running pcM on VII.1 means any later pcM-vs-pcL difference is a
-**mix of code difference and library difference, with no way to separate them.**
-That destroys the comparison this whole exercise exists to make.
-
-The evaluations that changed between VII.1 and VIII.0 include thermal
-scattering and the U isotopes — precisely what drives a ZrH-moderated TRIGA.
-A shift of several hundred pcm is plausible, which is at or above the
-supervisor's own stated ">500 pcm means something differs" threshold. In other
-words, **running VII.1 could by itself trigger a false "something differs"
-finding.**
-
-CLAUDE.md lists "nuclear data unavailable" and "two approved sources conflict"
-as explicit STOP conditions, and forbids silently changing nuclear data.
-
-**Do not just run VII.1 and report the number.** Choose one:
-
-1. **Preferred** — put ENDF/B-VIII.0 HDF5 in the image (subsetting to the
-   nuclides this model uses is fine: U-235, U-238, Zr isotopes, H-1, O-16,
-   Fe/Cr/Ni/Mn/Si/C, plus `c_H_in_ZrH`, `c_Zr_in_ZrH`, `c_H_in_H2O`).
-2. **Ask the supervisor** whether VII.1 is acceptable for this comparison.
-3. **If VII.1 is used anyway** — label every result `ENDF/B-VII.1` prominently,
-   state that it is NOT the spec library, and do not present the numbers as
-   comparable to the VIII.0 results already in `results/`.
-
-A cheap way to size the effect: run the unit cell on both libraries and report
-the k-infinity difference. That converts an unknown into a measured number.
-
-If you don't have the four measured values, run this inside a live Binder
-session and paste the output:
+**Do this first — it costs about five minutes and it is nearly free:**
 
 ```bash
-which cardinal-opt; echo $OPENMC_CROSS_SECTIONS; nproc; free -g
-mpirun --version | head -1; mpifort -show
+./scripts/run_openmc.sh unitcell baseline
 ```
 
----
+The VIII.0 baseline for that exact model is already committed:
+
+> **k-infinity = 1.384207 ± 0.000214 (21 pcm), ENDF/B-VIII.0**
+
+So whatever you get on VII.1, the difference **is** the library effect for this
+geometry — no extra work, no second library needed. Record it in
+`PCM_STATUS.md` as, for example, "VII.1 vs VIII.0 unit-cell delta = NNN pcm".
+
+Why it matters: pcM exists to be compared against pcL. If pcM runs VII.1 and
+pcL ran VIII.0, any difference is code-difference and library-difference
+tangled together. The thermal scattering and uranium evaluations both changed
+between these releases, and a ZrH-moderated TRIGA is sensitive to exactly
+those. A few hundred pcm is plausible — at or above the supervisor's own
+">500 pcm means something differs" threshold. Measuring the delta turns a
+confounder into a known offset.
+
+**Required regardless:** label every result with `ENDF/B-VII.1`. Do not present
+VII.1 numbers as continuous with the VIII.0 values already in `results/`.
+`scripts/env.sh` exports `PCM_XS_LIBRARY` and the audit prints it, so there is
+no excuse for an unlabelled number.
 
 ## What this is
 
@@ -170,7 +162,7 @@ Cardinal is already installed — that part is solved. What still bites:
 
 ## State at handoff
 
-**Done and verified:**
+**Done and verified — all produced with ENDF/B-VIII.0:**
 
 | | |
 |---|---|
