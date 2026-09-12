@@ -15,13 +15,49 @@ Cardinal is ALREADY INSTALLED AND WORKING in that Binder image.
 Use it. Do not rebuild Cardinal from source.
 Image definition lives in:  <Dockerfile | environment.yml | postBuild | apt.txt>
 
-NUCLEAR DATA:     ENDF/B-VIII.0 HDF5 at <path inside image>
+NUCLEAR DATA:     ENDF/B-VII.1 is what the Binder image has.
+                  THE APPROVED SPEC REQUIRES ENDF/B-VIII.0. See the warning
+                  immediately below - this is a decision, not a detail.
                   OPENMC_CROSS_SECTIONS=<path>/cross_sections.xml
 
-MEASURED LIMITS:  <nproc> cores, <free -g> GiB RAM, MPI = <OpenMPI | MPICH>
+MEASURED LIMITS:  32 GiB RAM, <nproc> cores, MPI = <OpenMPI | MPICH>
+                  -> Tier 3 (Full). NekRS polynomialOrder 7 fits (10.07 GB).
 
 YOUR TASK:        <state exactly what Codex should accomplish>
 ```
+
+## 🛑 STOP — nuclear data library conflict
+
+`spec/materials.md` and every result in this repo use **ENDF/B-VIII.0**. The
+target environment has **ENDF/B-VII.1**. These are different libraries.
+
+This matters because pcL — the team pcM is being compared against — used
+ENDF/B-VIII.0. Running pcM on VII.1 means any later pcM-vs-pcL difference is a
+**mix of code difference and library difference, with no way to separate them.**
+That destroys the comparison this whole exercise exists to make.
+
+The evaluations that changed between VII.1 and VIII.0 include thermal
+scattering and the U isotopes — precisely what drives a ZrH-moderated TRIGA.
+A shift of several hundred pcm is plausible, which is at or above the
+supervisor's own stated ">500 pcm means something differs" threshold. In other
+words, **running VII.1 could by itself trigger a false "something differs"
+finding.**
+
+CLAUDE.md lists "nuclear data unavailable" and "two approved sources conflict"
+as explicit STOP conditions, and forbids silently changing nuclear data.
+
+**Do not just run VII.1 and report the number.** Choose one:
+
+1. **Preferred** — put ENDF/B-VIII.0 HDF5 in the image (subsetting to the
+   nuclides this model uses is fine: U-235, U-238, Zr isotopes, H-1, O-16,
+   Fe/Cr/Ni/Mn/Si/C, plus `c_H_in_ZrH`, `c_Zr_in_ZrH`, `c_H_in_H2O`).
+2. **Ask the supervisor** whether VII.1 is acceptable for this comparison.
+3. **If VII.1 is used anyway** — label every result `ENDF/B-VII.1` prominently,
+   state that it is NOT the spec library, and do not present the numbers as
+   comparable to the VIII.0 results already in `results/`.
+
+A cheap way to size the effect: run the unit cell on both libraries and report
+the k-infinity difference. That converts an unknown into a measured number.
 
 If you don't have the four measured values, run this inside a live Binder
 session and paste the output:
